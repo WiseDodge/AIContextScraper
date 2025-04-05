@@ -81,11 +81,21 @@ class ContentParser:
         try:
             # Validate and extract HTML content
             if not isinstance(page_data, dict):
-                raise ValueError("Page data must be a dictionary")
+                raise TypeError(f"Page data must be a dictionary, got {type(page_data).__name__}")
+            
+            required_keys = {'html', 'url', 'title'}
+            missing_keys = required_keys - page_data.keys()
+            if missing_keys:
+                raise ValueError(f"Missing required keys in page_data: {', '.join(missing_keys)}")
+            
+            if 'html' not in page_data:
+                raise ValueError(f"Missing 'html' key in page_data. Keys found: {list(page_data.keys())}")
             
             html_content = page_data.get('html')
+            if html_content is None:
+                raise ValueError("HTML content is None")
             if not isinstance(html_content, str):
-                raise ValueError("HTML content must be a string")
+                raise ValueError(f"HTML content must be a string, got {type(html_content)}")
             if not html_content.strip():
                 raise ValueError("HTML content is empty")
             
@@ -102,7 +112,7 @@ class ContentParser:
                 'url': str(page_data.get('url', '')).strip(),
                 'content': cleaned_content,
                 'tokens': self.count_tokens(cleaned_content),
-                'timestamp': datetime.now(UTC).isoformat() + 'Z'
+                'timestamp': datetime.now(UTC).isoformat(timespec='seconds')
             })
             
             return metadata
@@ -117,3 +127,14 @@ class ContentParser:
             'content': chunk,
             'tokens': self.count_tokens(chunk)
         } for chunk in chunks]
+
+
+def clean_text_fallback(raw_text: str) -> str:
+    """Quick and dirty fallback cleaner."""
+    from html import unescape
+    import re
+
+    text = unescape(raw_text)
+    text = re.sub(r'<[^>]+>', '', text)  # Remove HTML tags
+    text = re.sub(r'\s+', ' ', text)     # Collapse whitespace
+    return text.strip()

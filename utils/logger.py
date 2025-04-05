@@ -1,9 +1,10 @@
 """Logging utility for AIContextScraper."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, UTC
 import os
-from typing import Optional
+from typing import Optional, Union
+import traceback
 
 class ScraperLogger:
     def __init__(self, output_dir: str):
@@ -15,7 +16,7 @@ class ScraperLogger:
         os.makedirs(logs_dir, exist_ok=True)
         
         # File handler
-        log_file = os.path.join(logs_dir, f'scraper_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log')
+        log_file = os.path.join(logs_dir, f'scraper_{datetime.now(UTC).strftime("%Y%m%d_%H%M%S")}.log')
         file_handler = logging.FileHandler(log_file)
         file_handler.setLevel(logging.INFO)
         
@@ -36,12 +37,15 @@ class ScraperLogger:
         """Log info level message."""
         self.logger.info(message)
     
-    def error(self, message: str, exc: Optional[Exception] = None) -> None:
-        """Log error level message with optional exception."""
-        if exc:
-            self.logger.error(f"{message}: {str(exc)}")
-        else:
-            self.logger.error(message)
+    def error(self, message: str, exc_info: Union[Exception, bool, None] = None) -> None:
+        """Log error level message with exception info.
+        
+        Args:
+            message: The error message to log
+            exc_info: Exception object, or True to include current exception info,
+                     or None/False to exclude exception info
+        """
+        self.logger.error(message, exc_info=bool(exc_info))
     
     def warning(self, message: str) -> None:
         """Log warning level message."""

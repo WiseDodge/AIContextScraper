@@ -8,7 +8,8 @@ HEADERS = {
 # Crawler settings
 MAX_CONCURRENCY = 10
 MAX_RETRIES = 3
-TIMEOUT = 10  # seconds
+TIMEOUT = 30  # seconds
+INITIAL_WAIT = 2  # seconds to wait for JS content to load
 
 # Content processing settings
 CHUNK_SIZE = 500  # max tokens or words per .txt split

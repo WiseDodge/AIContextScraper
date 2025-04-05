@@ -1,0 +1,12 @@
+{
+  "source": "fabricmc",
+  "run_time": "2025-04-05T04:39:56.819533+00:00Z",
+  "duration_seconds": 1.505675,
+  "doc_count": 0,
+  "total_tokens": 0,
+  "exported": [
+    "json",
+    "txt"
+  ],
+  "failed_urls": []
+}

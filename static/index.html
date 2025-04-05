@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIContextScraper</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --bg: #f8fafc;
+            --text: #1e293b;
+            --error: #ef4444;
+            --success: #22c55e;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 2rem;
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 2rem;
+            color: var(--primary);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        input[type="text"], input[type="url"] {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.375rem;
+            font-size: 1rem;
+            transition: border-color 0.15s ease-in-out;
+        }
+
+        input[type="text"]:focus, input[type="url"]:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin: 1rem 0;
+        }
+
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.375rem;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.15s ease-in-out;
+        }
+
+        button:hover {
+            background: var(--primary-dark);
+        }
+
+        button:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        #result {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            background: white;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            display: none;
+        }
+
+        #result.success {
+            border-left: 4px solid var(--success);
+        }
+
+        #result.error {
+            border-left: 4px solid var(--error);
+        }
+
+        .result-item {
+            margin-bottom: 0.5rem;
+        }
+
+        .result-item strong {
+            color: var(--primary);
+        }
+
+        #loading {
+            display: none;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .failed-urls {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #fee2e2;
+            border-radius: 0.375rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AIContextScraper</h1>
+        
+        <form id="scrapeForm">
+            <div class="form-group">
+                <label for="url">Documentation Website URL</label>
+                <input type="url" id="url" name="url" required 
+                       placeholder="https://example.com/docs">
+            </div>
+
+            <div class="form-group">
+                <label for="projectName">Project Name (Optional)</label>
+                <input type="text" id="projectName" name="projectName" 
+                       placeholder="Leave empty to use domain name">
+            </div>
+
+            <div class="checkbox-group">
+                <input type="checkbox" id="pdfExport" name="pdfExport">
+                <label for="pdfExport">Export PDF</label>
+            </div>
+
+            <button type="submit" id="submitBtn">Start Scraping</button>
+        </form>
+
+        <div id="loading">
+            <div class="spinner"></div>
+            <span>Scraping in progress...</span>
+        </div>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        const form = document.getElementById('scrapeForm');
+        const loading = document.getElementById('loading');
+        const result = document.getElementById('result');
+        const submitBtn = document.getElementById('submitBtn');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // Reset UI
+            result.style.display = 'none';
+            result.className = '';
+            loading.style.display = 'flex';
+            submitBtn.disabled = true;
+
+            try {
+                const response = await fetch('/api/scrape', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        url: form.url.value,
+                        project_name: form.projectName.value,
+                        pdf_export: form.pdfExport.checked
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    result.innerHTML = `
+                        <div class="result-item">
+                            <strong>Pages Processed:</strong> ${data.data.pages_processed}
+                        </div>
+                        <div class="result-item">
+                            <strong>Total Tokens:</strong> ${data.data.total_tokens}
+                        </div>
+                        <div class="result-item">
+                            <strong>Duration:</strong> ${data.data.duration_seconds.toFixed(2)} seconds
+                        </div>
+                        <div class="result-item">
+                            <strong>Output Directory:</strong> ${data.data.output_directory}
+                        </div>
+                    `;
+
+                    if (data.data.failed_urls && data.data.failed_urls.length > 0) {
+                        result.innerHTML += `
+                            <div class="failed-urls">
+                                <strong>Failed URLs (${data.data.failed_urls.length}):</strong>
+                                <ul>
+                                    ${data.data.failed_urls.map(url => `<li>${url}</li>`).join('')}
+                                </ul>
+                            </div>
+                        `;
+                    }
+
+                    result.className = 'success';
+                } else {
+                    result.innerHTML = `<strong>Error:</strong> ${data.message}`;
+                    result.className = 'error';
+                }
+            } catch (error) {
+                result.innerHTML = `<strong>Error:</strong> ${error.message}`;
+                result.className = 'error';
+            } finally {
+                loading.style.display = 'none';
+                result.style.display = 'block';
+                submitBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

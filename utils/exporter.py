@@ -12,10 +12,26 @@ from config import OUTPUT_DIRS, PDF_ENABLED
 from .logger import ScraperLogger
 
 class ContentExporter:
-    def __init__(self, base_dir: str, logger: ScraperLogger):
-        self.base_dir = base_dir
+    def __init__(self, output_dir: str, logger: ScraperLogger):
+        self.output_dir = output_dir
         self.logger = logger
-        self._setup_directories()
+        self.txt_dir = os.path.join(self.output_dir, 'txt')
+        os.makedirs(self.txt_dir, exist_ok=True)
+        self.base_dir = self.output_dir
+
+    def save_txt(self, url: str, content: str):
+        """Save content as a text file in the /txt folder."""
+        from urllib.parse import urlparse
+        import os
+
+        parsed = urlparse(url)
+        filename = parsed.path.strip("/").replace("/", "_") or "index"
+        if not filename.endswith(".txt"):
+            filename += ".txt"
+        path = os.path.join(self.txt_dir, filename)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content)
+        self.logger.info(f"Saved TXT for {url} at {path}")
     
     def _setup_directories(self) -> None:
         """Create output directory structure."""
@@ -97,4 +113,4 @@ class ContentExporter:
         
         if PDF_ENABLED:
             # PDF generation is synchronous, so we don't include it in gather
-            self.save_pdf(url, page_data['html'])
+            await self.save_pdf(url, page_data['html'])

@@ -17,7 +17,7 @@ async def scrape_site(url: str, output_dir: str) -> Dict[str, Any]:
     # Initialize components
     logger = ScraperLogger(output_dir)
     parser = ContentParser()
-    exporter = ContentExporter(output_dir, logger)
+    exporter = ContentExporter(output_dir=output_dir, logger=logger)
     
     logger.info(f"Starting scrape of {url}")
     start_time = datetime.now(UTC)
@@ -32,14 +32,60 @@ async def scrape_site(url: str, output_dir: str) -> Dict[str, Any]:
         
         # Process each page
         total_tokens = 0
+        total_errors = 0
         for page in crawl_results['pages']:
-            # Parse content
-            parsed_data = parser.parse_page(page)
-            chunks = parser.get_chunks(parsed_data['content'])
-            total_tokens += parsed_data['tokens']
-            
-            # Export in all formats
-            await exporter.export_page(parsed_data, chunks)
+            try:
+                # Validate page data
+                if not page:
+                    logger.warning("Skipping null page data")
+                    continue
+
+                page_url = page.get('url', 'unknown URL')
+                logger.info(f"Processing page: {page_url}")
+
+                # Try to get HTML content with fallback
+                html_content = page.get('html', '')
+                if not html_content or not html_content.strip():
+                    logger.warning(f"No HTML content found for {page_url}")
+                    continue
+
+                # Parse content with enhanced error handling
+                try:
+                    parsed_data = parser.parse_page({
+                        'html': html_content,
+                        'url': page_url,
+                        'title': page.get('title', '')
+                    })
+                    
+                    chunks = parser.get_chunks(parsed_data['content'])
+                    total_tokens += parsed_data.get('tokens', 0)
+                    
+                    # Export with fallback
+                    try:
+                        # Save text content first as fallback
+                        await exporter.save_txt(page_url, parsed_data['content'])
+                        # Then try full export
+                        await exporter.export_page(parsed_data, chunks)
+                    except Exception as export_error:
+                        logger.error(f"Failed to export {page_url}: {str(export_error)}")
+                        total_errors += 1
+                    
+                except Exception as parse_error:
+                    logger.warning(f"Failed to parse {page_url}: {str(parse_error)}")
+                    # Save raw content as fallback
+                    await exporter.save_txt(page_url, html_content)
+                    total_errors += 1
+                    
+            except Exception as e:
+                logger.error(f"Error processing page {page_url}: {str(e)}")
+                total_errors += 1
+                continue
+
+        # Final output logging
+        if total_errors > 0:
+            logger.warning(f"Scraping completed with {total_errors} errors. Check logs for details.")
+        else:
+            logger.info("Scraping completed successfully!")
         
         # Calculate statistics
         end_time = datetime.now(UTC)
@@ -48,7 +94,7 @@ async def scrape_site(url: str, output_dir: str) -> Dict[str, Any]:
         # Prepare run metadata
         metadata = {
             "source": url,
-            "run_time": start_time.isoformat() + 'Z',
+            "run_time": start_time.isoformat(timespec='seconds'),
             "duration_seconds": duration,
             "doc_count": total_pages,
             "total_tokens": total_tokens,
@@ -59,11 +105,11 @@ async def scrape_site(url: str, output_dir: str) -> Dict[str, Any]:
         # Save run metadata
         await exporter.save_metadata(metadata)
         
-        logger.info(f"Scraping completed in {duration:.2f} seconds")
+        logger.info(f"Scraping completed in {duration:.2f} seconds with {total_pages} pages processed")
         return metadata
     
     except Exception as e:
-        logger.error("Scraping failed", e)
+        logger.error(f"Scraping failed: {str(e)}", exc_info=True)
         raise
 
 def get_output_dir(url: str) -> str:
