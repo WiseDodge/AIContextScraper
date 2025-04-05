@@ -1,0 +1,34 @@
+name: Discord Notification
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    types: [opened, closed, reopened]
+
+jobs:
+  discord-notification:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Discord Webhook
+        env:
+          DISCORD_WEBHOOK: https://discord.com/api/webhooks/1357922712479334561/A07wUJx6WeXvVY55CCUaNhYlyoA-F0_o7l-w_L5DIn5cH-ttpGZZOUx8RM3Z0e-qucA1
+        uses: Ilshidur/action-discord@master
+        with:
+          args: |
+            🔔 **New Activity on AIContextScraper**
+            
+            🤖 Event: ${{ github.event_name }}
+            👤 Actor: **${{ github.actor }}**
+            
+            📝 Details:
+            ${{ github.event_name == 'pull_request' && format('PR {0} - {1}', github.event.pull_request.number, github.event.pull_request.title) || github.event.head_commit.message }}
+            
+            🔗 [View Changes](${{ github.event.pull_request.html_url || github.event.head_commit.url }})
+            
+            📦 Repository: [${{ github.repository }}](${{ github.server_url }}/${{ github.repository }})
