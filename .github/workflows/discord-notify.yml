@@ -16,6 +16,8 @@ jobs:
           fetch-depth: 0
 
       - name: Discord Webhook
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         uses: Ilshidur/action-discord@master
         with:
           args: |
@@ -30,4 +32,3 @@ jobs:
             🔗 [View Changes](${{ github.event.pull_request.html_url || github.event.head_commit.url }})
             
             📦 Repository: [${{ github.repository }}](${{ github.server_url }}/${{ github.repository }})
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
