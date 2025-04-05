@@ -1,0 +1,23 @@
+# Core dependencies
+aiohttp>=3.8.0
+beautifulsoup4>=4.9.3
+lxml>=4.9.0
+tqdm>=4.65.0
+
+# PDF export support
+pdfkit>=1.0.0
+weasyprint>=59.0
+
+# Text processing
+tiktoken>=0.3.0
+nltk>=3.8.1
+
+# Async utilities
+asyncio>=3.4.3
+aiofiles>=23.1.0
+
+# Type hints support
+typing-extensions>=4.7.0
+
+# Date handling
+python-dateutil>=2.8.2
