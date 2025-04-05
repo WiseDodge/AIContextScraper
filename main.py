@@ -2,7 +2,7 @@
 
 import asyncio
 import os
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Dict, Any
 from urllib.parse import urlparse
 
@@ -20,7 +20,7 @@ async def scrape_site(url: str, output_dir: str) -> Dict[str, Any]:
     exporter = ContentExporter(output_dir, logger)
     
     logger.info(f"Starting scrape of {url}")
-    start_time = datetime.utcnow()
+    start_time = datetime.now(UTC)
     
     try:
         # Fetch pages
@@ -42,7 +42,7 @@ async def scrape_site(url: str, output_dir: str) -> Dict[str, Any]:
             await exporter.export_page(parsed_data, chunks)
         
         # Calculate statistics
-        end_time = datetime.utcnow()
+        end_time = datetime.now(UTC)
         duration = (end_time - start_time).total_seconds()
         
         # Prepare run metadata

@@ -2,13 +2,13 @@
 
 import json
 import os
+import asyncio
 from typing import Dict, List, Any
 from datetime import datetime
 import aiofiles
-import pdfkit
-from weasyprint import HTML
+import importlib
 
-from ..config import OUTPUT_DIRS, PDF_ENABLED
+from config import OUTPUT_DIRS, PDF_ENABLED
 from .logger import ScraperLogger
 
 class ContentExporter:
@@ -56,8 +56,8 @@ class ContentExporter:
             async with aiofiles.open(filepath, 'w', encoding='utf-8') as f:
                 await f.write(chunk['content'])
     
-    def save_pdf(self, url: str, html: str) -> None:
-        """Save content as PDF using either pdfkit or weasyprint."""
+    async def save_pdf(self, url: str, html: str) -> None:
+        """Save content as PDF."""
         if not PDF_ENABLED:
             return
         
@@ -65,15 +65,17 @@ class ContentExporter:
         filepath = os.path.join(self.base_dir, 'pdf', filename)
         
         try:
-            # Try pdfkit first
-            pdfkit.from_string(html, filepath)
+            # Dynamically import PDF libraries only when needed
+            weasyprint = importlib.import_module('weasyprint')
+            weasyprint.HTML(string=html).write_pdf(filepath)
         except Exception as e:
-            self.logger.warning(f"pdfkit failed, trying weasyprint: {str(e)}")
+            self.logger.warning(f"WeasyPrint failed, falling back to pdfkit: {e}")
             try:
-                # Fallback to weasyprint
-                HTML(string=html).write_pdf(filepath)
+                # Dynamically import pdfkit
+                pdfkit = importlib.import_module('pdfkit')
+                pdfkit.from_string(html, filepath)
             except Exception as e:
-                self.logger.error(f"PDF generation failed for {url}", e)
+                self.logger.error(f"PDF export failed: {e}")
     
     async def save_metadata(self, metadata: Dict[str, Any]) -> None:
         """Save run metadata including statistics."""

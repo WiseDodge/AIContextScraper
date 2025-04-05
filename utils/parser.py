@@ -4,7 +4,7 @@ from typing import Dict, List, Any
 from bs4 import BeautifulSoup
 import re
 import tiktoken
-from datetime import datetime
+from datetime import datetime, UTC
 
 from config import CHUNK_SIZE, METADATA_TEMPLATE
 
@@ -78,20 +78,36 @@ class ContentParser:
         """Parse a page and return structured content with metadata."""
         metadata = METADATA_TEMPLATE.copy()
         
-        # Extract and clean content
-        raw_content = self.extract_content(page_data['html'])
-        cleaned_content = self.clean_text(raw_content)
-        
-        # Update metadata
-        metadata.update({
-            'title': page_data['title'],
-            'url': page_data['url'],
-            'content': cleaned_content,
-            'tokens': self.count_tokens(cleaned_content),
-            'timestamp': datetime.utcnow().isoformat() + 'Z'
-        })
-        
-        return metadata
+        try:
+            # Validate and extract HTML content
+            if not isinstance(page_data, dict):
+                raise ValueError("Page data must be a dictionary")
+            
+            html_content = page_data.get('html')
+            if not isinstance(html_content, str):
+                raise ValueError("HTML content must be a string")
+            if not html_content.strip():
+                raise ValueError("HTML content is empty")
+            
+            # Process content
+            raw_content = self.extract_content(html_content)
+            if not raw_content.strip():
+                raise ValueError("No content extracted from HTML")
+                
+            cleaned_content = self.clean_text(raw_content)
+            
+            # Update metadata with validated data
+            metadata.update({
+                'title': str(page_data.get('title', '')).strip(),
+                'url': str(page_data.get('url', '')).strip(),
+                'content': cleaned_content,
+                'tokens': self.count_tokens(cleaned_content),
+                'timestamp': datetime.now(UTC).isoformat() + 'Z'
+            })
+            
+            return metadata
+        except Exception as e:
+            raise ValueError(f"Failed to parse page: {str(e)}") from e
     
     def get_chunks(self, content: str) -> List[Dict[str, Any]]:
         """Split content into chunks with metadata."""
