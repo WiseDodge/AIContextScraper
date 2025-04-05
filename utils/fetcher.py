@@ -2,13 +2,12 @@
 
 import asyncio
 from typing import Optional, Dict, Any
-import aiohttp
 from urllib.parse import urljoin, urlparse
-from datetime import datetime
-import sys
+from datetime import datetime, timezone
+from playwright.async_api import async_playwright
 from bs4 import BeautifulSoup
 
-from config import HEADERS, MAX_RETRIES, TIMEOUT, MAX_CONCURRENCY, BLACKLIST_PATTERNS
+from config import HEADERS, MAX_RETRIES, TIMEOUT, MAX_CONCURRENCY, BLACKLIST_PATTERNS, INITIAL_WAIT
 from .logger import ScraperLogger
 
 class AsyncFetcher:
@@ -16,19 +15,88 @@ class AsyncFetcher:
         self.base_url = base_url
         self.domain = urlparse(base_url).netloc
         self.logger = logger
-        self.session: Optional[aiohttp.ClientSession] = None
-        self.semaphore = asyncio.Semaphore(MAX_CONCURRENCY)
         self.visited_urls = set()
         self.failed_urls = set()
+        self.playwright = None
+        self.browser = None
+        self.semaphore = asyncio.Semaphore(MAX_CONCURRENCY)
     
     async def __aenter__(self):
-        self.session = aiohttp.ClientSession(headers=HEADERS)
+        self.playwright = await async_playwright().start()
+        self.browser = await self.playwright.chromium.launch(headless=True)
         return self
     
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        if self.session:
-            await self.session.close()
-    
+        if self.browser:
+            await self.browser.close()
+        if self.playwright:
+            await self.playwright.stop()
+
+    async def fetch_page(self, url: str, retry_count: int = 0) -> Optional[Dict[str, Any]]:
+        """Fetch a single page with retry logic and JavaScript rendering."""
+        if not self._is_valid_url(url) or url in self.visited_urls:
+            return None
+        
+        self.visited_urls.add(url)
+        
+        try:
+            async with self.semaphore:
+                page = await self.browser.new_page()
+                await page.set_extra_http_headers(HEADERS)
+                
+                # Enhanced page loading strategy
+                await page.goto(url, wait_until='domcontentloaded')
+                
+                # Wait for initial page load
+                await page.wait_for_load_state('domcontentloaded')
+                
+                # Get initial HTML content
+                initial_html = await page.content()
+                
+                try:
+                    # Try to wait for additional dynamic content
+                    await page.wait_for_load_state('networkidle', timeout=10000)
+                    await page.wait_for_load_state('load', timeout=10000)
+                    await asyncio.sleep(INITIAL_WAIT)
+                    
+                    # Get the final rendered HTML
+                    html = await page.content()
+                    
+                    # Validate HTML content structure
+                    soup = BeautifulSoup(html, 'lxml')
+                    if not soup.find(['body', 'main', 'article', 'div']):
+                        self.logger.warning(f"Using initial HTML content for {url} as fallback")
+                        html = initial_html
+                except Exception as e:
+                    self.logger.warning(f"Using initial HTML content for {url} due to: {str(e)}")
+                    html = initial_html
+                
+                # Final parsing of the HTML content
+                soup = BeautifulSoup(html, 'lxml')
+                title = await page.title() or soup.title.string if soup.title else url
+                
+                await page.close()
+                
+                if not html or html.strip() == "":
+                    raise ValueError("Empty HTML content received")
+                
+                return {
+                    'url': url,
+                    'html': html,
+                    'title': title,
+                    'timestamp': datetime.now(timezone.utc).isoformat(timespec='seconds')
+                }
+                
+        except Exception as e:
+            self.logger.error(f"Error fetching {url}", e)
+            if retry_count < MAX_RETRIES:
+                await asyncio.sleep(2 ** retry_count)  # Exponential backoff
+                return await self.fetch_page(url, retry_count + 1)
+            
+            self.failed_urls.add(url)
+            
+        return None
+
     def _is_valid_url(self, url: str) -> bool:
         """Check if URL should be crawled based on domain and blacklist patterns."""
         if not url or any(pattern in url for pattern in BLACKLIST_PATTERNS):
@@ -37,49 +105,11 @@ class AsyncFetcher:
         parsed = urlparse(url)
         return parsed.netloc == self.domain
     
-    async def fetch_page(self, url: str, retry_count: int = 0) -> Optional[Dict[str, Any]]:
-        """Fetch a single page with retry logic."""
-        if not self._is_valid_url(url) or url in self.visited_urls:
-            return None
-        
-        self.visited_urls.add(url)
-        
-        try:
-            async with self.semaphore:
-                if not self.session:
-                    raise RuntimeError("Session not initialized")
-                
-                async with self.session.get(url, timeout=TIMEOUT) as response:
-                    if response.status == 200:
-                        html = await response.text()
-                        soup = BeautifulSoup(html, 'lxml')
-                        
-                        return {
-                            'url': url,
-                            'html': html,
-                            'title': soup.title.string if soup.title else url,
-                            'timestamp': datetime.utcnow().isoformat() + 'Z'
-                        }
-                    else:
-                        self.logger.warning(f"Failed to fetch {url}: Status {response.status}")
-        
-        except asyncio.TimeoutError:
-            self.logger.warning(f"Timeout while fetching {url}")
-        except Exception as e:
-            self.logger.error(f"Error fetching {url}", e)
-        
-        if retry_count < MAX_RETRIES:
-            await asyncio.sleep(2 ** retry_count)  # Exponential backoff
-            return await self.fetch_page(url, retry_count + 1)
-        
-        self.failed_urls.add(url)
-        return None
-    
     def extract_links(self, html: str, current_url: str) -> set[str]:
         """Extract valid links from HTML content."""
-        soup = BeautifulSoup(html, 'lxml')
-        links = set()
         
+        links = set()
+        soup = BeautifulSoup(html, 'lxml')
         for anchor in soup.find_all('a', href=True):
             href = anchor['href']
             absolute_url = urljoin(current_url, href)
