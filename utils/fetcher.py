@@ -8,7 +8,7 @@ from datetime import datetime
 import sys
 from bs4 import BeautifulSoup
 
-from ..config import HEADERS, MAX_RETRIES, TIMEOUT, MAX_CONCURRENCY, BLACKLIST_PATTERNS
+from config import HEADERS, MAX_RETRIES, TIMEOUT, MAX_CONCURRENCY, BLACKLIST_PATTERNS
 from .logger import ScraperLogger
 
 class AsyncFetcher:

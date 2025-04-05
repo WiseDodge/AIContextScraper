@@ -6,7 +6,7 @@ import re
 import tiktoken
 from datetime import datetime
 
-from ..config import CHUNK_SIZE, METADATA_TEMPLATE
+from config import CHUNK_SIZE, METADATA_TEMPLATE
 
 class ContentParser:
     def __init__(self):
