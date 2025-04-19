@@ -3,3 +3,5 @@ logs/
 .qodo
 .pytest_cache
 __pycache__/
+# Ignore IntelliJ IDEA files
+.idea/
