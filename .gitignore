@@ -2,4 +2,4 @@
 logs/
 .qodo
 .pytest_cache
-_pycache_
+_pycache_/
