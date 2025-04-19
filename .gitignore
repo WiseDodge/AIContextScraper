@@ -1,3 +1,5 @@
 # Ignore logs folder
 logs/
 .qodo
+.pytest_cache
+_pycache_

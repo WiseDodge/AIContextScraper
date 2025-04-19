@@ -27,8 +27,10 @@ jobs:
             👤 Actor: **${{ github.actor }}**
             
             📝 Details:
-            ${{ github.event_name == 'pull_request' && format('PR {0} - {1}', github.event.pull_request.number, github.event.pull_request.title) || github.event.head_commit.message }}
+            `${{ github.event_name == 'pull_request' && format('PR {0} - {1}', github.event.pull_request.number, github.event.pull_request.title) || github.event.head_commit.message }}`
             
-            🔗 [View Changes](${{ github.event.pull_request.html_url || github.event.head_commit.url }})
+            🔗 [View Changes](<${{ github.event.pull_request.html_url || github.event.head_commit
+            .url }}>)
             
-            📦 Repository: [${{ github.repository }}](${{ github.server_url }}/${{ github.repository }})
+            📦 Repository: [${{ github.repository }}](<${{ github.server_url }}/${{ github
+            .repository }}>)
